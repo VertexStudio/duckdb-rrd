@@ -60,6 +60,39 @@ re-opens and decodes the file, tolerating a truncated tail (a chunk that is
 still being written). Polling therefore comes for free at the SQL layer:
 re-running a query sees new data. No file locks are taken.
 
+## Write support
+
+`.rrd` is an append-only chunk stream, which maps naturally onto DuckDB's
+`COPY ... TO` machinery (DuckDB 1.5's C API exposes
+`duckdb_register_copy_function`):
+
+```sql
+-- Export query results as a new Rerun recording
+COPY (SELECT frame_nr, loss, accuracy FROM training_metrics)
+TO 'metrics.rrd'
+(FORMAT rrd, ENTITY '/metrics', TIMELINE 'frame_nr',
+ COLUMNS 'frame_nr,loss,accuracy');
+```
+
+Semantics and constraints:
+
+- **Create / export** — each `COPY TO` produces a valid recording: a store
+  header followed by data chunks. Values are written as generic Rerun
+  component batches (one component per column) on the target `ENTITY`.
+- **Index column** — the column named by `TIMELINE` becomes the index
+  (sequence for integers, timestamp for TIMESTAMP columns). Remaining columns
+  become components.
+- **Column names** — DuckDB's copy-function C API surfaces column *types* but
+  not *names* at bind time, so names are passed explicitly with the `COLUMNS`
+  option; without it, columns are named `col_0..col_N` positionally.
+- **Append** — `.rrd` streams are concatenable; appending to an existing
+  recording file is a follow-up (requires reusing the original store id).
+- **No in-place mutation** — deliberately unsupported; it breaks append-only
+  semantics. The supported pattern is read → transform → write a new file.
+
+`COPY ... FROM (FORMAT rrd)` can be wired to the same reader via
+`duckdb_copy_function_set_copy_from_function`.
+
 ## Schema mapping
 
 | Rerun column kind      | DuckDB column                                    |
