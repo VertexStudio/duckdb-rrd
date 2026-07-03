@@ -1,12 +1,10 @@
-# Draft descriptor for submitting to github.com/duckdb/community-extensions.
+# Mirror of the descriptor submitted to github.com/duckdb/community-extensions
+# (extensions/rrd/description.yml, PR #2174). The registry's copy is the
+# source of truth once merged; keep this one in sync when releasing.
 #
-# Submission = a PR adding this file as extensions/rrd/description.yml in that
-# repo. Their CI then clones `repo.github` at `repo.ref` (a tag) and builds it
-# for every non-excluded platform with the same toolchain as our Makefile.
-#
-# Before submitting:
-# - cut a version tag (e.g. v0.1.0) and point `ref` at it
-# - set `version` to match
+# Releasing a new version:
+# - tag the release (vX.Y.Z) and push the tag
+# - bump `version` and `ref` here and in the registry via a PR
 
 extension:
   name: rrd
