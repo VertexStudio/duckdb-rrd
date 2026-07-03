@@ -20,7 +20,8 @@ re_dataframe = "0.33.1"
 re_log_encoding = { version = "0.33.1", features = ["decoder"] }
 re_log_types = "0.33.1"
 re_chunk = "0.33.1"
-arrow = "57"
+re_sorbet = "0.33.1"
+arrow = { version = "57", features = ["ffi"] }
 anyhow = "1"
 
 # duckdb pins comfy-table to ~7.1 to preserve its MSRV (1.85); rerun's crates
