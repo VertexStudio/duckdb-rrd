@@ -7,7 +7,7 @@ use duckdb::core::{DataChunkHandle, Inserter, LogicalTypeHandle, LogicalTypeId};
 use duckdb::vtab::arrow::{record_batch_to_duckdb_data_chunk, to_duckdb_logical_type};
 use duckdb::vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab};
 
-use duckdb::arrow::datatypes::{Schema as DbSchema, SchemaRef as DbSchemaRef};
+use duckdb::arrow::datatypes::{Field as DbField, Schema as DbSchema, SchemaRef as DbSchemaRef};
 use duckdb::arrow::record_batch::RecordBatch as DbRecordBatch;
 
 use re_dataframe::{
@@ -179,7 +179,17 @@ impl VTab for ReadRrd {
             .iter()
             .map(|column| arrow_bridge::array_to_db(column.as_ref()))
             .collect::<Result<Vec<_>, _>>()?;
-        let batch = DbRecordBatch::try_new(bind.schema.clone(), columns)?;
+        // Names come from the bind-time schema, datatypes from the actual
+        // arrays: rrd files in the wild differ in irrelevant details like
+        // list-item field names, which RecordBatch::try_new would reject.
+        let fields = bind
+            .schema
+            .fields()
+            .iter()
+            .zip(&columns)
+            .map(|(field, column)| DbField::new(field.name(), column.data_type().clone(), true))
+            .collect::<Vec<_>>();
+        let batch = DbRecordBatch::try_new(DbSchemaRef::new(DbSchema::new(fields)), columns)?;
         record_batch_to_duckdb_data_chunk(&batch, output)?;
         Ok(())
     }

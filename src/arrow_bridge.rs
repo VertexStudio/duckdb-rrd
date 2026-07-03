@@ -32,16 +32,6 @@ pub fn array_to_db(array: &dyn Array) -> Result<arrow_db::array::ArrayRef, BoxEr
     Ok(arrow_db::array::make_array(data))
 }
 
-/// duckdb-arrow array -> rerun-arrow array (zero-copy).
-pub fn array_from_db(array: &dyn arrow_db::array::Array) -> Result<arrow::array::ArrayRef, BoxError> {
-    let (ffi_array, ffi_schema) = arrow_db::ffi::to_ffi(&array.to_data())?;
-    // SAFETY: see `array_to_db`.
-    let ffi_array: FFI_ArrowArray = unsafe { transmute(ffi_array) };
-    let ffi_schema: FFI_ArrowSchema = unsafe { transmute(ffi_schema) };
-    let data = unsafe { arrow::ffi::from_ffi(ffi_array, &ffi_schema)? };
-    Ok(arrow::array::make_array(data))
-}
-
 /// rerun-arrow field -> duckdb-arrow field.
 pub fn field_to_db(field: &arrow::datatypes::Field) -> Result<arrow_db::datatypes::Field, BoxError> {
     let ffi = FFI_ArrowSchema::try_from(field)?;

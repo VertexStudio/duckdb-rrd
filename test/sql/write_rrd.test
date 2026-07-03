@@ -1,0 +1,77 @@
+# name: test/sql/write_rrd.test
+# description: COPY ... TO (FORMAT rrd) writes Rerun recordings
+# group: [rrd]
+
+require rrd
+
+# --- basic write + read back ------------------------------------------------
+
+statement ok
+COPY (SELECT i AS frame, i * 2 AS speed FROM range(10) t(i))
+TO '__TEST_DIR__/copy.rrd' (FORMAT rrd, ENTITY '/car', TIMELINE 'frame', COLUMNS 'frame,speed');
+
+query II
+SELECT frame, "/car:speed"[1] FROM read_rrd('__TEST_DIR__/copy.rrd') WHERE frame IN (0, 9) ORDER BY frame;
+----
+0	0
+9	18
+
+# --- full round-trip of the fixture ------------------------------------------
+
+statement ok
+COPY (SELECT frame, "/metrics/loss:value"[1] AS loss FROM read_rrd('test/data/simple.rrd'))
+TO '__TEST_DIR__/loss.rrd' (FORMAT rrd, ENTITY '/metrics/loss', TIMELINE 'frame', COLUMNS 'frame,loss');
+
+query I
+SELECT count(*) FROM read_rrd('__TEST_DIR__/loss.rrd');
+----
+100
+
+query I
+SELECT count(*) FROM read_rrd('__TEST_DIR__/loss.rrd') a
+JOIN read_rrd('test/data/simple.rrd') b USING (frame)
+WHERE a."/metrics/loss:loss"[1] = b."/metrics/loss:value"[1];
+----
+100
+
+# --- timestamp timeline and list components ----------------------------------
+
+statement ok
+COPY (
+    SELECT TIMESTAMP '2026-07-03 10:00:00' + INTERVAL (i) SECOND AS t,
+           [i * 1.0, i * 2.0] AS vec
+    FROM range(3) tbl(i)
+) TO '__TEST_DIR__/ts.rrd' (FORMAT rrd, ENTITY '/sensors/imu', TIMELINE 't', COLUMNS 't,vec');
+
+query II
+SELECT count(*), max("/sensors/imu:vec"[2]) FROM read_rrd('__TEST_DIR__/ts.rrd', timeline => 't');
+----
+3	4.0
+
+# --- static data --------------------------------------------------------------
+
+statement ok
+COPY (SELECT 'config_v2' AS name)
+TO '__TEST_DIR__/static.rrd' (FORMAT rrd, ENTITY '/meta', TIMELINE '', COLUMNS 'name');
+
+query I
+SELECT "/meta:name"[1] FROM read_rrd('__TEST_DIR__/static.rrd', static_only => true);
+----
+config_v2
+
+# --- errors -------------------------------------------------------------------
+
+statement error
+COPY (SELECT 1) TO '__TEST_DIR__/e.rrd' (FORMAT rrd);
+----
+requires the ENTITY option
+
+statement error
+COPY (SELECT 'x' AS a, 1 AS b) TO '__TEST_DIR__/e.rrd' (FORMAT rrd, ENTITY '/e', COLUMNS 'a,b', TIMELINE 'a');
+----
+must be an integer or timestamp
+
+statement error
+COPY (SELECT 1 AS a, 2 AS b) TO '__TEST_DIR__/e.rrd' (FORMAT rrd, ENTITY '/e', BOGUS 'x');
+----
+unknown option
