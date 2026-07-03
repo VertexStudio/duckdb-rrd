@@ -1,0 +1,104 @@
+# name: test/sql/read_rrd.test
+# description: read Rerun .rrd recordings with the rrd extension
+# group: [rrd]
+
+# Before loading the extension the function does not exist
+statement error
+SELECT * FROM read_rrd('test/data/simple.rrd');
+----
+Catalog Error: Table Function with name read_rrd does not exist!
+
+require rrd
+
+# --- introspection ----------------------------------------------------------
+
+query II
+SELECT * FROM rrd_recordings('test/data/simple.rrd');
+----
+duckdb_rrd_test	test_recording_001
+
+query I
+SELECT * FROM rrd_entities('test/data/simple.rrd');
+----
+/metrics/loss
+/world
+/world/points
+
+query II
+SELECT column_name, kind FROM rrd_schema('test/data/simple.rrd') ORDER BY kind, column_name;
+----
+/metrics/loss:value	component
+/world/points:positions	component
+/world:label	component
+frame	index
+
+# --- basic scan -------------------------------------------------------------
+
+query I
+SELECT count(*) FROM read_rrd('test/data/simple.rrd');
+----
+100
+
+query II
+SELECT frame, "/metrics/loss:value"[1] > 0.78 FROM read_rrd('test/data/simple.rrd') WHERE frame = 9;
+----
+9	true
+
+# static components broadcast to every row
+query I
+SELECT DISTINCT "/world:label"[1] FROM read_rrd('test/data/simple.rrd');
+----
+hello rrd
+
+# fixed-size lists arrive as DuckDB ARRAY values
+query II
+SELECT frame, "/world/points:positions"[1][1] FROM read_rrd('test/data/simple.rrd') WHERE frame = 3;
+----
+3	3.0
+
+# --- named parameters -------------------------------------------------------
+
+# entity filter narrows the columns
+query I
+SELECT count(*) FROM (
+    DESCRIBE SELECT * FROM read_rrd('test/data/simple.rrd', entity => '/metrics/**')
+);
+----
+2
+
+# sparse columns are NULL without fill_latest...
+query I
+SELECT "/world/points:positions" IS NULL FROM read_rrd('test/data/simple.rrd') WHERE frame = 50;
+----
+true
+
+# ...and filled with latest-at semantics with it
+query I
+SELECT "/world/points:positions"[1][1] FROM read_rrd('test/data/simple.rrd', fill_latest => true) WHERE frame = 50;
+----
+9.0
+
+# --- read-while-write -------------------------------------------------------
+
+# a recording with its tail cut mid-message (no footer) still reads fine
+query I
+SELECT count(*) FROM read_rrd('test/data/truncated.rrd');
+----
+100
+
+# --- errors -----------------------------------------------------------------
+
+statement error
+SELECT * FROM read_rrd('test/data/simple.rrd', entity => '/nope/**');
+----
+matches no entity
+
+statement error
+SELECT * FROM read_rrd('test/data/simple.rrd', timeline => 'bogus');
+----
+timeline "bogus" not found
+
+statement error
+SELECT * FROM read_rrd('test/data/simple.rrd', recording => 'wrong');
+----
+no recording "wrong"
