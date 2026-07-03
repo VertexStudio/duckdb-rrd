@@ -17,10 +17,11 @@ duckdb = { version = "~1.10504.0", features = ["loadable-extension", "vtab", "vs
 
 re_chunk_store = "0.33.1"
 re_dataframe = "0.33.1"
-re_log_encoding = { version = "0.33.1", features = ["decoder"] }
+re_log_encoding = { version = "0.33.1", features = ["decoder", "encoder"] }
 re_log_types = "0.33.1"
 re_chunk = "0.33.1"
 re_sorbet = "0.33.1"
+re_types_core = "0.33.1"
 arrow = { version = "57", features = ["ffi"] }
 anyhow = "1"
 

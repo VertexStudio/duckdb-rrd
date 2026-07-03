@@ -3080,6 +3080,7 @@ dependencies = [
  "re_log_encoding",
  "re_log_types",
  "re_sorbet",
+ "re_types_core",
 ]
 
 [[package]]
