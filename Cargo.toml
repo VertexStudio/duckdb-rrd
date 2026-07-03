@@ -1,7 +1,7 @@
 [package]
 name = "rrd"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "DuckDB extension for reading Rerun .rrd recording files"
 license = "MIT"
 
@@ -14,3 +14,17 @@ strip = true
 
 [dependencies]
 duckdb = { version = "~1.10504.0", features = ["loadable-extension", "vtab", "vscalar"] }
+
+re_chunk_store = "0.33.1"
+re_dataframe = "0.33.1"
+re_log_encoding = { version = "0.33.1", features = ["decoder"] }
+re_log_types = "0.33.1"
+re_chunk = "0.33.1"
+arrow = "57"
+anyhow = "1"
+
+# duckdb pins comfy-table to ~7.1 to preserve its MSRV (1.85); rerun's crates
+# require comfy-table >=7.2.2. The pin is irrelevant on our toolchain, so we
+# vendor the duckdb crate with the requirement widened to >=7.1, <8.
+[patch.crates-io]
+duckdb = { path = "third_party/duckdb" }

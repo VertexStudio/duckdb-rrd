@@ -1,0 +1,6 @@
+{
+  "git": {
+    "sha1": "452fc0b6650edd8c8aac5c83a98d320bc31cb5bc"
+  },
+  "path_in_vcs": "crates/duckdb"
+}
