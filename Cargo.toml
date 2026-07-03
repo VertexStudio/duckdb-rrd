@@ -1,0 +1,16 @@
+[package]
+name = "rrd"
+version = "0.1.0"
+edition = "2021"
+description = "DuckDB extension for reading Rerun .rrd recording files"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+strip = true
+
+[dependencies]
+duckdb = { version = "~1.10504.0", features = ["loadable-extension", "vtab", "vscalar"] }
