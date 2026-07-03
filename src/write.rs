@@ -125,7 +125,7 @@ unsafe extern "C" fn destroy_box<T>(ptr: *mut c_void) {
 
 /// Runs a callback body, converting panics into `Err` so they never unwind
 /// across the `extern "C"` boundary (which would abort the process).
-fn no_unwind<T>(body: impl FnOnce() -> Result<T, BoxError>) -> Result<T, BoxError> {
+pub(crate) fn no_unwind<T>(body: impl FnOnce() -> Result<T, BoxError>) -> Result<T, BoxError> {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(body)) {
         Ok(result) => result,
         Err(panic) => {

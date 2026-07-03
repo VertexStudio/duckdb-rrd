@@ -91,6 +91,30 @@ fn main() -> anyhow::Result<()> {
         points.build()?.to_arrow_msg()?,
     ));
 
+    // Big point cloud: one row holding 3000 points. Regression coverage for
+    // list children larger than DuckDB's standard vector size (2048), which
+    // requires explicit child reservation and size publication when writing
+    // list vectors.
+    let coords = Float32Array::from((0..9000).map(|i| i as f32).collect::<Vec<_>>());
+    let positions = FixedSizeListArray::new(
+        Arc::new(Field::new("item", DataType::Float32, false)),
+        3,
+        Arc::new(coords),
+        None::<NullBuffer>,
+    );
+    let cloud = Chunk::builder("/world/cloud").with_serialized_batch(
+        RowId::new(),
+        TimePoint::default().with(frame, 0i64),
+        SerializedComponentBatch {
+            descriptor: ComponentDescriptor::partial("positions"),
+            array: Arc::new(positions),
+        },
+    );
+    messages.push(LogMsg::ArrowMsg(
+        store_id.clone(),
+        cloud.build()?.to_arrow_msg()?,
+    ));
+
     // Static label on /world (empty timepoint = static data).
     let label = Chunk::builder("/world").with_serialized_batch(
         RowId::new(),

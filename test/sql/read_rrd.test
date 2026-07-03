@@ -22,12 +22,14 @@ SELECT * FROM rrd_entities('test/data/simple.rrd');
 ----
 /metrics/loss
 /world
+/world/cloud
 /world/points
 
 query II
 SELECT column_name, kind FROM rrd_schema('test/data/simple.rrd') ORDER BY kind, column_name;
 ----
 /metrics/loss:value	component
+/world/cloud:positions	component
 /world/points:positions	component
 /world:label	component
 frame	index
@@ -77,6 +79,21 @@ query I
 SELECT "/world/points:positions"[1][1] FROM read_rrd('test/data/simple.rrd', fill_latest => true) WHERE frame = 50;
 ----
 9.0
+
+# --- large nested lists and UNNEST ------------------------------------------
+
+# one row holds 3000 points (> the 2048 standard vector size); UNNEST walks
+# the list child, which must be sized and reserved correctly
+query III
+WITH pts AS (
+    SELECT UNNEST("/world/cloud:positions") AS p
+    FROM read_rrd('test/data/simple.rrd', entity => '/world/cloud')
+)
+SELECT count(*), min(p[1]), max(p[3]) FROM pts;
+----
+3000
+0.0
+8999.0
 
 # --- read-while-write -------------------------------------------------------
 

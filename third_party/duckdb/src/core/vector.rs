@@ -269,9 +269,27 @@ impl<'a> ListVector<'a> {
         unsafe { ArrayVector::from_raw(duckdb_list_vector_get_child(self.entries.ptr)) }
     }
 
+    /// Take the child as [ArrayVector], reserving room for `capacity` entries.
+    pub fn array_child_with_capacity(&self, capacity: usize) -> ArrayVector<'a> {
+        self.reserve(capacity);
+        unsafe { ArrayVector::from_raw(duckdb_list_vector_get_child(self.entries.ptr)) }
+    }
+
     /// Take the child as [ListVector].
     pub fn list_child(&self) -> ListVector<'a> {
         unsafe { ListVector::from_raw(duckdb_list_vector_get_child(self.entries.ptr)) }
+    }
+
+    /// Take the child as [ListVector], reserving room for `capacity` entries.
+    ///
+    /// Without the reservation the child's entry buffer stays at the standard
+    /// vector size (2048) and writing deeper-nested lists past that panics.
+    pub fn list_child_with_capacity(&self, capacity: usize) -> ListVector<'a> {
+        self.reserve(capacity);
+        let child = unsafe { duckdb_list_vector_get_child(self.entries.ptr) };
+        ListVector {
+            entries: FlatVector::with_capacity(child, capacity),
+        }
     }
 
     /// Set primitive data to the child node.

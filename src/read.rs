@@ -46,6 +46,46 @@ impl VTab for ReadRrd {
     type InitData = ReadRrdInit;
 
     fn bind(bind: &BindInfo) -> Result<Self::BindData, BoxError> {
+        crate::write::no_unwind(|| Self::bind_inner(bind))
+    }
+
+    fn init(init: &InitInfo) -> Result<Self::InitData, BoxError> {
+        let bind = unsafe { &*init.get_bind_data::<ReadRrdBind>() };
+        Ok(ReadRrdInit {
+            handle: Mutex::new(bind.engine.query(bind.query.clone())),
+        })
+    }
+
+    fn func(
+        func: &TableFunctionInfo<Self>,
+        output: &mut DataChunkHandle,
+    ) -> Result<(), BoxError> {
+        crate::write::no_unwind(|| Self::func_inner(func, output))
+    }
+
+    fn parameters() -> Option<Vec<LogicalTypeHandle>> {
+        Some(vec![varchar()])
+    }
+
+    fn named_parameters() -> Option<Vec<(String, LogicalTypeHandle)>> {
+        Some(vec![
+            ("entity".to_string(), varchar()),
+            ("timeline".to_string(), varchar()),
+            ("recording".to_string(), varchar()),
+            (
+                "fill_latest".to_string(),
+                LogicalTypeHandle::from(LogicalTypeId::Boolean),
+            ),
+            (
+                "static_only".to_string(),
+                LogicalTypeHandle::from(LogicalTypeId::Boolean),
+            ),
+        ])
+    }
+}
+
+impl ReadRrd {
+    fn bind_inner(bind: &BindInfo) -> Result<ReadRrdBind, BoxError> {
         let path = bind.get_parameter(0).to_string();
         let entity = bind.get_named_parameter("entity").map(|v| v.to_string());
         let timeline = bind.get_named_parameter("timeline").map(|v| v.to_string());
@@ -153,14 +193,7 @@ impl VTab for ReadRrd {
         })
     }
 
-    fn init(init: &InitInfo) -> Result<Self::InitData, BoxError> {
-        let bind = unsafe { &*init.get_bind_data::<ReadRrdBind>() };
-        Ok(ReadRrdInit {
-            handle: Mutex::new(bind.engine.query(bind.query.clone())),
-        })
-    }
-
-    fn func(
+    fn func_inner(
         func: &TableFunctionInfo<Self>,
         output: &mut DataChunkHandle,
     ) -> Result<(), BoxError> {
@@ -192,26 +225,6 @@ impl VTab for ReadRrd {
         let batch = DbRecordBatch::try_new(DbSchemaRef::new(DbSchema::new(fields)), columns)?;
         record_batch_to_duckdb_data_chunk(&batch, output)?;
         Ok(())
-    }
-
-    fn parameters() -> Option<Vec<LogicalTypeHandle>> {
-        Some(vec![varchar()])
-    }
-
-    fn named_parameters() -> Option<Vec<(String, LogicalTypeHandle)>> {
-        Some(vec![
-            ("entity".to_string(), varchar()),
-            ("timeline".to_string(), varchar()),
-            ("recording".to_string(), varchar()),
-            (
-                "fill_latest".to_string(),
-                LogicalTypeHandle::from(LogicalTypeId::Boolean),
-            ),
-            (
-                "static_only".to_string(),
-                LogicalTypeHandle::from(LogicalTypeId::Boolean),
-            ),
-        ])
     }
 }
 

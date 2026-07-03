@@ -1031,10 +1031,16 @@ fn list_array_to_vector<O: OffsetSizeTrait + AsPrimitive<usize>>(
             );
         }
         DataType::List(_) => {
-            list_array_to_vector(as_list_array(value_array.as_ref()), &mut out.list_child())?;
+            list_array_to_vector(
+                as_list_array(value_array.as_ref()),
+                &mut out.list_child_with_capacity(value_array.len()),
+            )?;
         }
         DataType::FixedSizeList(_, _) => {
-            fixed_size_list_array_to_vector(as_fixed_size_list_array(value_array.as_ref()), &mut out.array_child())?;
+            fixed_size_list_array_to_vector(
+                as_fixed_size_list_array(value_array.as_ref()),
+                &mut out.array_child_with_capacity(value_array.len()),
+            )?;
         }
         DataType::Struct(_) => {
             struct_array_to_vector(
@@ -1056,6 +1062,9 @@ fn list_array_to_vector<O: OffsetSizeTrait + AsPrimitive<usize>>(
         let length = array.value_length(i);
         out.set_entry(i, offset.as_(), length.as_());
     }
+    // Publish the child length; without it DuckDB sees an empty child and
+    // operations that walk it (e.g. UNNEST) return NULLs.
+    out.set_len(value_array.len());
     set_nulls_in_list_vector(array, out);
 
     Ok(())
